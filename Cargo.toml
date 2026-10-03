@@ -1,0 +1,8 @@
+[package]
+name = "myke"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mystd = { version = "0.1.0", path = "../mystd" }
+regex = "1.13.1"
