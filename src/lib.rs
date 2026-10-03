@@ -33,7 +33,7 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
         dbg!(&obj_path);
 
         if should_be_built(path, &obj_path) {
-            println!("Building : {}", path.to_str().unwrap());
+            println!("Building : {}", obj_path.to_str().unwrap());
             let output = process::Command::new("mkdir")
                 .arg("-p")
                 .arg(obj_path.parent().unwrap().to_str().unwrap())
@@ -161,6 +161,7 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
                 if !captured_path.is_absolute() {
                     captured_path = path.parent().unwrap().join(captured_path);
                 }
+                captured_path = captured_path.canonicalize().unwrap();
 
                 if captured_path.with_extension("cpp").is_file() {
                     captured_path = captured_path.with_extension("cpp")

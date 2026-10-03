@@ -24,7 +24,10 @@ fn main() {
     //
     //
     //
-    let bin_file = PathBuf::from(args.get(filepath_index).unwrap());
+    let bin_file = PathBuf::from(args.get(filepath_index).unwrap())
+        .canonicalize()
+        .unwrap();
+
     let mut included_files: Vec<PathBuf> = Vec::new();
     included_files.push(bin_file.clone());
 
