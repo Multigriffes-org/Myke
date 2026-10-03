@@ -47,6 +47,9 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
                 command.arg("-g");
             }
             let output = command
+                .arg("-Wall")
+                .arg("-Wextra")
+                .arg("-Wpedantic")
                 .arg("-c")
                 .arg(format!("{}", dir.join(name).to_str().unwrap()))
                 .arg("-o")
