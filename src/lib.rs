@@ -18,10 +18,8 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
     for path in source_files {
         let dir = path.parent().unwrap();
         // dbg!(&dir);
-        let stem = path.file_stem().unwrap().to_str().unwrap();
+        let stem = path.file_stem().unwrap();
         // dbg!(&stem);
-        let name = path.file_name().unwrap().to_str().unwrap();
-        // dbg!(&name);
         let target_dir = if debug_mode {
             Path::new("target/debug/")
         } else {
@@ -36,7 +34,7 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
             println!("Building : {}", obj_path.to_str().unwrap());
             let output = process::Command::new("mkdir")
                 .arg("-p")
-                .arg(obj_path.parent().unwrap().to_str().unwrap())
+                .arg(&obj_path.parent().unwrap())
                 .output()
                 .unwrap();
             io::stdout().write_all(&output.stdout).unwrap();
@@ -46,14 +44,15 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
             if debug_mode {
                 command.arg("-g");
             }
+
             let output = command
                 .arg("-Wall")
                 .arg("-Wextra")
                 .arg("-Wpedantic")
                 .arg("-c")
-                .arg(format!("{}", dir.join(name).to_str().unwrap()))
+                .arg(&path)
                 .arg("-o")
-                .arg(format!("{}", obj_path.to_str().unwrap()))
+                .arg(&obj_path)
                 .output()
                 .unwrap();
 
@@ -66,6 +65,7 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
     return builded_files;
 }
 
+/// Take two PathBuf and check if left is more recent than right
 fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
     let obj_last_modified = match obj_path.metadata() {
         Err(_) => SystemTime::UNIX_EPOCH,
@@ -98,7 +98,7 @@ fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
 pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) {
     let mut command = process::Command::new("g++");
     for obj in builded_files {
-        command.arg(obj.to_str().unwrap());
+        command.arg(&obj);
     }
 
     let target_dir = if debug_mode {
@@ -117,15 +117,15 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
     // dbg!(&bin_path);
     println!("Linking : {}", bin_path.to_str().unwrap());
 
-    command.arg("-o").arg(bin_path.to_str().unwrap());
+    command.arg("-o").arg(&bin_path);
 
     let output = command.output().unwrap();
     io::stdout().write_all(&output.stdout).unwrap();
     io::stdout().write_all(&output.stderr).unwrap();
 }
 
-/// Recursively get all included header in all the file if the correspding .c/.cpp exist
-/// without duplicates
+/// Get all included header in the file if the correspding .c/.cpp exist
+/// without duplicates and make them absolute
 fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
     match (path.try_exists(), path.is_file()) {
         (Err(err), _) => {
@@ -188,6 +188,8 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
     return local_included_files;
 }
 
+/// Recursively get all included header in all the file if the correspding .c/.cpp exist
+/// without duplicates and make them absolute
 pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
     let mut local_included_files = find_included_files_relative(&path);
     // dbg!(&local_included_files);
