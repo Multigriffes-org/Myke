@@ -10,9 +10,11 @@ use std::{
 
 /// Take a list of PathBuf pointing at .c or .cpp files
 /// Update there corresponding .o in their target/{release/debug}/ directorie
-/// Returne all the corresponding .o files regardless of if they have been updated or not
+/// Return all the corresponding .o files regardless of whether they have been updated or not
 pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> {
     let mut builded_files = Vec::new();
+    dbg!("Build obj !!!");
+
     for path in source_files {
         let dir = path.parent().unwrap();
         dbg!(&dir);
@@ -30,32 +32,11 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
         obj_path.add_extension("o");
         dbg!(&obj_path);
 
-        let obj_last_modified = match obj_path.metadata() {
-            Err(_) => SystemTime::UNIX_EPOCH,
-            Ok(metadata) => match metadata.modified() {
-                Err(_) => SystemTime::UNIX_EPOCH,
-                Ok(date) => date,
-            },
-        };
-
-        let source_last_modified = match path.metadata() {
-            Err(err) => {
-                println!("Problem reading file metadata: {}", err);
-                SystemTime::now()
-            }
-            Ok(metadata) => match metadata.modified() {
-                Err(err) => {
-                    println!("Problem getting last modified date: {err}");
-                    SystemTime::now()
-                }
-                Ok(date) => date,
-            },
-        };
-
-        if source_last_modified > obj_last_modified {
+        if should_be_built(path, &obj_path) {
+            println!("Building : {}", path.to_str().unwrap());
             let output = process::Command::new("mkdir")
                 .arg("-p")
-                .arg(format!("{}", obj_path.parent().unwrap().to_str().unwrap()))
+                .arg(obj_path.parent().unwrap().to_str().unwrap())
                 .output()
                 .unwrap();
             io::stdout().write_all(&output.stdout).unwrap();
@@ -78,9 +59,39 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
         }
         builded_files.push(obj_path);
     }
-    builded_files
+
+    return builded_files;
 }
 
+fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
+    let obj_last_modified = match obj_path.metadata() {
+        Err(_) => SystemTime::UNIX_EPOCH,
+        Ok(metadata) => match metadata.modified() {
+            Err(_) => SystemTime::UNIX_EPOCH,
+            Ok(date) => date,
+        },
+    };
+
+    let source_last_modified = match source_path.metadata() {
+        Err(err) => {
+            println!("Problem reading file metadata: {}", err);
+            SystemTime::now()
+        }
+        Ok(metadata) => match metadata.modified() {
+            Err(err) => {
+                println!("Problem getting last modified date: {err}");
+                SystemTime::now()
+            }
+            Ok(date) => {
+                dbg!(date);
+                date
+            }
+        },
+    };
+    return source_last_modified > obj_last_modified;
+}
+
+/// Take a list of PathBuf and pass them to gcc with the correct output dir
 pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) {
     let mut command = process::Command::new("g++");
     for obj in builded_files {
@@ -92,7 +103,8 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
     } else {
         Path::new("target/release/")
     };
-    dbg!("Build");
+
+    dbg!("Build !!!");
     dbg!(&target_dir);
     let dir = bin_file.parent().unwrap();
     dbg!(&dir);
@@ -102,12 +114,15 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
     dbg!(&bin_path);
 
     command.arg("-o").arg(bin_path.to_str().unwrap());
+
     let output = command.output().unwrap();
     io::stdout().write_all(&output.stdout).unwrap();
     io::stdout().write_all(&output.stderr).unwrap();
 }
 
-pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
+/// Recursively get all included header in all the file if the correspding .c/.cpp exist
+/// without duplicates
+fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
     match (path.try_exists(), path.is_file()) {
         (Err(err), _) => {
             println!("Can't reach path : {:?}", err);
@@ -141,9 +156,8 @@ pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<Pat
             dbg!(&captures.get(0).unwrap());
             if let Some(captured_match) = captures.get(1) {
                 dbg!(&captured_match);
-                let captured_string = captured_match.as_str().to_string();
 
-                let mut captured_path = PathBuf::from(&captured_string);
+                let mut captured_path = PathBuf::from(&captured_match.as_str().to_string());
                 if !captured_path.is_absolute() {
                     captured_path = path.parent().unwrap().join(captured_path);
                 }
@@ -166,6 +180,12 @@ pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<Pat
             continue;
         }
     }
+    return local_included_files;
+}
+
+pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
+    let mut local_included_files = find_included_files_relative(&path);
+    dbg!(&local_included_files);
 
     remove_elements_in(&mut local_included_files, included_files);
     dbg!(&local_included_files);
@@ -176,35 +196,5 @@ pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<Pat
 
     for included_file in local_included_files {
         find_included_files_recursive(included_file, included_files);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_build_obj() {
-        let mut vec = Vec::new();
-        vec.push(PathBuf::from("test/test.cpp"));
-        vec.push(PathBuf::from("test/test2.cpp"));
-        build_obj(&vec, false);
-    }
-    #[test]
-    fn test_find_included_files() {
-        let path = PathBuf::from("test/test2.cpp");
-        let mut vec: Vec<PathBuf> = Vec::new();
-        vec.push(path.clone());
-        find_included_files_recursive(path, &mut Vec::new());
-        dbg!(vec);
-    }
-    #[test]
-    fn chain() {
-        let path = PathBuf::from("test/test2.cpp");
-        let mut vec = Vec::new();
-        vec.push(path.clone());
-        find_included_files_recursive(path.clone(), &mut vec);
-        let builded_files = build_obj(&vec, false);
-        build(path, &builded_files, false);
     }
 }

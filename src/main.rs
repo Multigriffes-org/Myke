@@ -20,11 +20,11 @@ fn main() {
             }
         }
     }
+    //
+    //
+    //
+    //
     let bin_file = PathBuf::from(args.get(filepath_index).unwrap());
-    //
-    //
-    //
-    //
     let mut included_files: Vec<PathBuf> = Vec::new();
     included_files.push(bin_file.clone());
 
