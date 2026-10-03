@@ -13,24 +13,24 @@ use std::{
 /// Return all the corresponding .o files regardless of whether they have been updated or not
 pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> {
     let mut builded_files = Vec::new();
-    dbg!("Build obj !!!");
+    // dbg!("Build obj !!!");
 
     for path in source_files {
         let dir = path.parent().unwrap();
-        dbg!(&dir);
+        // dbg!(&dir);
         let stem = path.file_stem().unwrap().to_str().unwrap();
-        dbg!(&stem);
+        // dbg!(&stem);
         let name = path.file_name().unwrap().to_str().unwrap();
-        dbg!(&name);
+        // dbg!(&name);
         let target_dir = if debug_mode {
             Path::new("target/debug/")
         } else {
             Path::new("target/release/")
         };
-        dbg!(&target_dir);
+        // dbg!(&target_dir);
         let mut obj_path = dir.join(target_dir).join(stem);
         obj_path.add_extension("o");
-        dbg!(&obj_path);
+        // dbg!(&obj_path);
 
         if should_be_built(path, &obj_path) {
             println!("Building : {}", obj_path.to_str().unwrap());
@@ -83,7 +83,7 @@ fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
                 SystemTime::now()
             }
             Ok(date) => {
-                dbg!(date);
+                // dbg!(date);
                 date
             }
         },
@@ -104,14 +104,15 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
         Path::new("target/release/")
     };
 
-    dbg!("Build !!!");
-    dbg!(&target_dir);
+    // dbg!("Build !!!");
+    // dbg!(&target_dir);
     let dir = bin_file.parent().unwrap();
-    dbg!(&dir);
+    // dbg!(&dir);
     let stem = bin_file.file_stem().unwrap();
-    dbg!(&stem);
+    // dbg!(&stem);
     let bin_path = dir.join(target_dir).join(stem);
-    dbg!(&bin_path);
+    // dbg!(&bin_path);
+    println!("Linking : {}", bin_path.to_str().unwrap());
 
     command.arg("-o").arg(bin_path.to_str().unwrap());
 
@@ -153,9 +154,9 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
 
     for line in source_file.lines() {
         if let Some(captures) = regex_matcher.captures(line) {
-            dbg!(&captures.get(0).unwrap());
+            // dbg!(&captures.get(0).unwrap());
             if let Some(captured_match) = captures.get(1) {
-                dbg!(&captured_match);
+                // dbg!(&captured_match);
 
                 let mut captured_path = PathBuf::from(&captured_match.as_str().to_string());
                 if !captured_path.is_absolute() {
@@ -172,8 +173,8 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
                 }
 
                 local_included_files.push(captured_path);
-                dbg!(&local_included_files);
-            //
+                // dbg!(&local_included_files);
+                //
             } else {
                 continue;
             }
@@ -186,14 +187,14 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
 
 pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
     let mut local_included_files = find_included_files_relative(&path);
-    dbg!(&local_included_files);
+    // dbg!(&local_included_files);
 
     remove_elements_in(&mut local_included_files, included_files);
-    dbg!(&local_included_files);
+    // dbg!(&local_included_files);
 
     let mut temp = local_included_files.clone();
     included_files.append(&mut temp);
-    dbg!(&included_files);
+    // dbg!(&included_files);
 
     for included_file in local_included_files {
         find_included_files_recursive(included_file, included_files);
