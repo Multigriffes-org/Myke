@@ -27,9 +27,13 @@ fn main() {
     //
     //
     //
-    let bin_file = PathBuf::from(args.get(filepath_index).unwrap())
-        .canonicalize()
-        .unwrap();
+    let bin_file = match PathBuf::from(args.get(filepath_index).unwrap()).canonicalize() {
+        Ok(path) => path,
+        Err(err) => {
+            println!("File not found: {err}");
+            std::process::exit(1);
+        }
+    };
 
     let mut included_files: Vec<PathBuf> = Vec::new();
     included_files.push(bin_file.clone());
@@ -37,7 +41,7 @@ fn main() {
     find_included_files_recursive(bin_file.clone(), &mut included_files);
 
     let builded_files = build_obj(&included_files, debug_mode);
-    
+
     if !obj_only {
         build(bin_file, &builded_files, debug_mode);
     }
