@@ -185,6 +185,8 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
             continue;
         }
     }
+    local_included_files.sort_unstable();
+    local_included_files.dedup();
     return local_included_files;
 }
 
