@@ -126,7 +126,7 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
 
 /// Get all included header in the file if the correspding .c/.cpp exist
 /// without duplicates and make them absolute
-fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
+fn find_included_files(path: &PathBuf) -> Vec<PathBuf> {
     match (path.try_exists(), path.is_file()) {
         (Err(err), _) => {
             println!("Can't reach path : {:?}", err);
@@ -165,7 +165,6 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
                 if !captured_path.is_absolute() {
                     captured_path = path.parent().unwrap().join(captured_path);
                 }
-                captured_path = captured_path.canonicalize().unwrap();
 
                 if captured_path.with_extension("cpp").is_file() {
                     captured_path = captured_path.with_extension("cpp")
@@ -175,9 +174,10 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
                     continue;
                 }
 
+                captured_path = captured_path.canonicalize().unwrap();
+
                 local_included_files.push(captured_path);
                 // dbg!(&local_included_files);
-                //
             } else {
                 continue;
             }
@@ -193,7 +193,7 @@ fn find_included_files_relative(path: &PathBuf) -> Vec<PathBuf> {
 /// Recursively get all included header in all the file if the correspding .c/.cpp exist
 /// without duplicates and make them absolute
 pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
-    let mut local_included_files = find_included_files_relative(&path);
+    let mut local_included_files = find_included_files(&path);
     // dbg!(&local_included_files);
 
     remove_elements_in(&mut local_included_files, included_files);
