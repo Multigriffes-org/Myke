@@ -8,6 +8,24 @@ use std::{
     time::SystemTime,
 };
 
+/// Recursively get all included header in all the file if the correspding .c/.cpp exist
+/// without duplicates and make them absolute
+pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
+    let mut local_included_files = find_included_files(&path);
+    // dbg!(&local_included_files);
+
+    remove_elements_in(&mut local_included_files, included_files);
+    // dbg!(&local_included_files);
+
+    let mut temp = local_included_files.clone();
+    included_files.append(&mut temp);
+    // dbg!(&included_files);
+
+    for included_file in local_included_files {
+        find_included_files_recursive(included_file, included_files);
+    }
+}
+
 /// Take a list of PathBuf pointing at .c or .cpp files
 /// Update there corresponding .o in their target/{release/debug}/ directorie
 /// Return all the corresponding .o files regardless of whether they have been updated or not
@@ -65,35 +83,6 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
     return builded_files;
 }
 
-/// Take two PathBuf and check if left is more recent than right
-fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
-    let obj_last_modified = match obj_path.metadata() {
-        Err(_) => SystemTime::UNIX_EPOCH,
-        Ok(metadata) => match metadata.modified() {
-            Err(_) => SystemTime::UNIX_EPOCH,
-            Ok(date) => date,
-        },
-    };
-
-    let source_last_modified = match source_path.metadata() {
-        Err(err) => {
-            println!("Problem reading file metadata: {}", err);
-            SystemTime::now()
-        }
-        Ok(metadata) => match metadata.modified() {
-            Err(err) => {
-                println!("Problem getting last modified date: {err}");
-                SystemTime::now()
-            }
-            Ok(date) => {
-                // dbg!(date);
-                date
-            }
-        },
-    };
-    return source_last_modified > obj_last_modified;
-}
-
 /// Take a list of PathBuf and pass them to gcc with the correct output dir
 pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) {
     let mut command = process::Command::new("g++");
@@ -122,6 +111,35 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
     let output = command.output().unwrap();
     io::stdout().write_all(&output.stdout).unwrap();
     io::stdout().write_all(&output.stderr).unwrap();
+}
+
+/// Take two PathBuf and check if left is more recent than right
+fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
+    let obj_last_modified = match obj_path.metadata() {
+        Err(_) => SystemTime::UNIX_EPOCH,
+        Ok(metadata) => match metadata.modified() {
+            Err(_) => SystemTime::UNIX_EPOCH,
+            Ok(date) => date,
+        },
+    };
+
+    let source_last_modified = match source_path.metadata() {
+        Err(err) => {
+            println!("Problem reading file metadata: {}", err);
+            SystemTime::now()
+        }
+        Ok(metadata) => match metadata.modified() {
+            Err(err) => {
+                println!("Problem getting last modified date: {err}");
+                SystemTime::now()
+            }
+            Ok(date) => {
+                // dbg!(date);
+                date
+            }
+        },
+    };
+    return source_last_modified > obj_last_modified;
 }
 
 /// Get all included header in the file if the correspding .c/.cpp exist
@@ -188,22 +206,4 @@ fn find_included_files(path: &PathBuf) -> Vec<PathBuf> {
     local_included_files.sort_unstable();
     local_included_files.dedup();
     return local_included_files;
-}
-
-/// Recursively get all included header in all the file if the correspding .c/.cpp exist
-/// without duplicates and make them absolute
-pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<PathBuf>) {
-    let mut local_included_files = find_included_files(&path);
-    // dbg!(&local_included_files);
-
-    remove_elements_in(&mut local_included_files, included_files);
-    // dbg!(&local_included_files);
-
-    let mut temp = local_included_files.clone();
-    included_files.append(&mut temp);
-    // dbg!(&included_files);
-
-    for included_file in local_included_files {
-        find_included_files_recursive(included_file, included_files);
-    }
 }
