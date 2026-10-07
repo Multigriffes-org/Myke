@@ -29,9 +29,10 @@ pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<Pat
 /// Take a list of PathBuf pointing at .c or .cpp files
 /// Update there corresponding .o in their target/{release/debug}/ directorie
 /// Return all the corresponding .o files regardless of whether they have been updated or not
-pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> {
+pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> (Vec<PathBuf>, i32) {
     let mut builded_files = Vec::new();
     // dbg!("Build obj !!!");
+    let mut return_code = 0;
 
     for path in source_files {
         let dir = path.parent().unwrap();
@@ -58,6 +59,8 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
             io::stdout().write_all(&output.stdout).unwrap();
             io::stdout().write_all(&output.stderr).unwrap();
 
+            change_if_non_zero(&mut return_code, output.status.code());
+
             let mut command = process::Command::new("g++");
             if debug_mode {
                 command.arg("-g");
@@ -76,15 +79,17 @@ pub fn build_obj(source_files: &Vec<PathBuf>, debug_mode: bool) -> Vec<PathBuf> 
 
             io::stdout().write_all(&output.stdout).unwrap();
             io::stdout().write_all(&output.stderr).unwrap();
+
+            change_if_non_zero(&mut return_code, output.status.code());
         }
         builded_files.push(obj_path);
     }
 
-    return builded_files;
+    return (builded_files, return_code);
 }
 
 /// Take a list of PathBuf and pass them to gcc with the correct output dir
-pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) {
+pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) -> i32 {
     let mut command = process::Command::new("g++");
     for obj in builded_files {
         command.arg(&obj);
@@ -111,6 +116,10 @@ pub fn build(bin_file: PathBuf, builded_files: &Vec<PathBuf>, debug_mode: bool) 
     let output = command.output().unwrap();
     io::stdout().write_all(&output.stdout).unwrap();
     io::stdout().write_all(&output.stderr).unwrap();
+    return match output.status.code() {
+        None => 0,
+        Some(code) => code,
+    };
 }
 
 /// Take two PathBuf and check if left is more recent than right
@@ -134,11 +143,12 @@ fn should_be_built(source_path: &PathBuf, obj_path: &PathBuf) -> bool {
                 SystemTime::now()
             }
             Ok(date) => {
-                // dbg!(date);
+                // dbg!(&date);
                 date
             }
         },
     };
+
     return source_last_modified > obj_last_modified;
 }
 
@@ -206,4 +216,14 @@ fn find_included_files(path: &PathBuf) -> Vec<PathBuf> {
     local_included_files.sort_unstable();
     local_included_files.dedup();
     return local_included_files;
+}
+
+fn change_if_non_zero(var: &mut i32, output: Option<i32>) {
+    let command_return_code = match output {
+        None => 0,
+        Some(code) => code,
+    };
+    if command_return_code != 0 {
+        *var = command_return_code;
+    }
 }

@@ -40,9 +40,10 @@ fn main() {
 
     find_included_files_recursive(bin_file.clone(), &mut included_files);
 
-    let builded_files = build_obj(&included_files, debug_mode);
+    let (builded_files, mut return_code) = build_obj(&included_files, debug_mode);
 
     if !obj_only {
-        build(bin_file, &builded_files, debug_mode);
+        return_code = build(bin_file, &builded_files, debug_mode);
     }
+    std::process::exit(return_code);
 }
