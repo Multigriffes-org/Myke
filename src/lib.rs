@@ -1,4 +1,4 @@
-use mystd::remove_elements_in;
+use mystd::remove_elements_in_common;
 use regex::regex;
 use std::{
     fs,
@@ -14,7 +14,7 @@ pub fn find_included_files_recursive(path: PathBuf, included_files: &mut Vec<Pat
     let mut local_included_files = find_included_files(&path);
     // dbg!(&local_included_files);
 
-    remove_elements_in(&mut local_included_files, included_files);
+    remove_elements_in_common(&mut local_included_files, included_files);
     // dbg!(&local_included_files);
 
     let mut temp = local_included_files.clone();
@@ -179,7 +179,7 @@ fn find_included_files(path: &PathBuf) -> Vec<PathBuf> {
         }
     };
 
-    let regex_matcher = regex!(r#"^#include\ *\"((/?[\w\-. ]+)+\.h)\"\ *$"#);
+    let regex_matcher = regex!(r#"^#include\ *\"((/?[\w\-. ]+)+\.hpp)\"\ *$"#);
 
     let mut local_included_files: Vec<PathBuf> = Vec::new();
 
@@ -196,8 +196,6 @@ fn find_included_files(path: &PathBuf) -> Vec<PathBuf> {
 
                 if captured_path.with_extension("cpp").is_file() {
                     captured_path = captured_path.with_extension("cpp")
-                } else if captured_path.with_extension("c").is_file() {
-                    captured_path = captured_path.with_extension("c")
                 } else {
                     continue;
                 }
