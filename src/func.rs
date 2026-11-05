@@ -49,7 +49,7 @@ pub fn compute_dependencies(
         Ok(num) => num.get(),
         Err(_) => 1,
     };
-    dbg!(num_worker);
+    // dbg!(num_worker);
 
     let mut join_handles = Vec::new();
     for _ in 0..num_worker {
@@ -172,13 +172,13 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
     }
 }
 
-pub fn link(source_file_list: &Vec<SourceFile>, binary_path: BinaryPath) {
+pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32 {
     let mut mkdir = Command::new("mkdir");
     mkdir.arg("-p");
     match binary_path.path().parent() {
         None => {}
         Some(path) => {
-            dbg!(path);
+            // dbg!(path);
             mkdir.arg(path);
         }
     };
@@ -203,11 +203,16 @@ pub fn link(source_file_list: &Vec<SourceFile>, binary_path: BinaryPath) {
     match gcc.output() {
         Err(err) => {
             eprintln!("{}", err);
+            1
         }
         Ok(output) => {
             println!("Linking : {:?}", binary_path.path());
             let _ = stdout().write_all(&output.stdout);
             let _ = stderr().write_all(&output.stderr);
+            match output.status.code() {
+                None => 1,
+                Some(code) => code,
+            }
         }
     }
 }
