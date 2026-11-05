@@ -5,7 +5,6 @@ use std::{
         atomic::{AtomicU8, Ordering::SeqCst},
         mpmc::{Receiver, Sender},
     },
-    time::Duration,
 };
 
 use regex::Regex;
@@ -26,22 +25,21 @@ pub fn dependencies_worker(
             break;
         }
 
-        let mut included_path_list =
-            match source_file_list_receiver.recv_timeout(Duration::new(1, 0)) {
-                Ok(mut source_file) => {
-                    println!("updating_deps: {:?}", source_file.get_source_path().path());
-                    match source_file.update_dependencies(regex_matcher) {
-                        Ok(list) => list,
-                        Err(err) => {
-                            eprintln!("{err}");
-                            continue;
-                        }
+        let mut included_path_list = match source_file_list_receiver.try_recv() {
+            Ok(mut source_file) => {
+                println!("updating_deps: {:?}", source_file.get_source_path().path());
+                match source_file.update_dependencies(regex_matcher) {
+                    Ok(list) => list,
+                    Err(err) => {
+                        eprintln!("{err}");
+                        continue;
                     }
                 }
-                Err(_err) => {
-                    continue;
-                }
-            };
+            }
+            Err(_err) => {
+                continue;
+            }
+        };
 
         let mut already_knowned_source_path_hashset = match already_knowned_source_path.lock() {
             Ok(list) => list,
