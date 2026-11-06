@@ -8,6 +8,7 @@ fn print_help() {
     println!("Usage: myke (build|run) [Option] <File>");
     println!("Option:");
     println!("\t-r --release");
+    println!("\t-g --debug");
     println!("By default it's a debug build");
 }
 
@@ -45,12 +46,19 @@ fn main() {
             }
             Some(arg) => match arg.as_str() {
                 "-r" | "--release" => debug_mode = false,
+                "-g" | "--debug" => debug_mode = true,
                 _ => {
                     path_index = i;
                     break;
                 }
             },
         }
+    }
+
+    if debug_mode {
+        println!("Debug mode");
+    } else {
+        println!("Release mode");
     }
 
     if path_index == 0 {
