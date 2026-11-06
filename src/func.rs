@@ -2,11 +2,12 @@ use std::{
     collections::HashSet,
     io::{self, ErrorKind, Write, stderr, stdout},
     process::Command,
-    sync::{Arc, Mutex, atomic::AtomicU8, mpmc},
+    sync::{Arc, Mutex, atomic::AtomicU8},
     thread::{available_parallelism, spawn},
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use crossbeam::queue::SegQueue;
 use regex::regex;
 
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
@@ -37,13 +38,8 @@ pub fn compute_dependencies(
     let already_knowned_source_path = Arc::new(Mutex::new(HashSet::from([initial_source_path])));
     let general_busyness = Arc::new(AtomicU8::new(1));
 
-    let (source_file_list_sender, source_file_list_receiver) = mpmc::channel::<SourceFile>();
-    match source_file_list_sender.send(main_file) {
-        Ok(_) => {}
-        Err(_) => {
-            return Err(io::ErrorKind::BrokenPipe);
-        }
-    };
+    let source_file_queue = Arc::new(SegQueue::new());
+    source_file_queue.push(main_file);
 
     let num_worker = match available_parallelism() {
         Ok(num) => num.get(),
@@ -53,15 +49,13 @@ pub fn compute_dependencies(
 
     let mut join_handles = Vec::new();
     for _ in 0..num_worker {
-        let _source_file_list_sender = source_file_list_sender.clone();
-        let _source_file_list_receiver = source_file_list_receiver.clone();
+        let _source_file_queue = source_file_queue.clone();
         let _general_busyness = general_busyness.clone();
         let _already_knowned_source_path = already_knowned_source_path.clone();
 
         join_handles.push(spawn(move || {
             dependencies_worker(
-                _source_file_list_receiver,
-                _source_file_list_sender,
+                _source_file_queue,
                 _general_busyness,
                 _already_knowned_source_path,
                 regex_matcher,

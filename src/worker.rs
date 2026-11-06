@@ -3,17 +3,16 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicU8, Ordering::SeqCst},
-        mpmc::{Receiver, Sender},
     },
 };
 
+use crossbeam::queue::SegQueue;
 use regex::Regex;
 
 use crate::{file::SourceFile, path::SourcePath};
 
 pub fn dependencies_worker(
-    source_file_list_receiver: Receiver<SourceFile>,
-    source_file_list_sender: Sender<SourceFile>,
+    source_file_list: Arc<SegQueue<SourceFile>>,
     general_busyness: Arc<AtomicU8>,
     already_knowned_source_path: Arc<Mutex<HashSet<SourcePath>>>,
     regex_matcher: &Regex,
@@ -25,8 +24,8 @@ pub fn dependencies_worker(
             break;
         }
 
-        let mut included_path_list = match source_file_list_receiver.try_recv() {
-            Ok(mut source_file) => {
+        let mut included_path_list = match source_file_list.pop() {
+            Some(mut source_file) => {
                 println!("updating_deps: {:?}", source_file.get_source_path().path());
                 match source_file.update_dependencies(regex_matcher) {
                     Ok(list) => list,
@@ -36,7 +35,7 @@ pub fn dependencies_worker(
                     }
                 }
             }
-            Err(_err) => {
+            None => {
                 continue;
             }
         };
@@ -61,14 +60,8 @@ pub fn dependencies_worker(
             .collect();
 
         included_source_file_list.iter().for_each(|x| {
-            match source_file_list_sender.send(x.clone()) {
-                Err(err) => {
-                    eprintln!("{}", err);
-                }
-                Ok(_) => {
-                    general_busyness.fetch_add(1, SeqCst);
-                }
-            };
+            source_file_list.push(x.clone());
+            general_busyness.fetch_add(1, SeqCst);
         });
 
         included_source_file_list.iter().for_each(|x| {
