@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     io::{self, ErrorKind, Write, stderr, stdout},
     process::Command,
-    sync::{Arc, Mutex, atomic::AtomicU8},
+    sync::{Arc, Mutex, atomic::AtomicU32},
     thread::{available_parallelism, spawn},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -36,7 +36,7 @@ pub fn compute_dependencies(
 
     let mut general_source_file_list = vec![main_file.clone()];
     let already_knowned_source_path = Arc::new(Mutex::new(HashSet::from([initial_source_path])));
-    let general_busyness = Arc::new(AtomicU8::new(1));
+    let general_busyness = Arc::new(AtomicU32::new(1));
 
     let source_file_queue = Arc::new(SegQueue::new());
     source_file_queue.push(main_file);

@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU8, Ordering::SeqCst},
+        atomic::{AtomicU32, Ordering::SeqCst},
     },
 };
 
@@ -13,7 +13,7 @@ use crate::{file::SourceFile, path::SourcePath};
 
 pub fn dependencies_worker(
     source_file_list: Arc<SegQueue<SourceFile>>,
-    general_busyness: Arc<AtomicU8>,
+    general_busyness: Arc<AtomicU32>,
     already_knowned_source_path: Arc<Mutex<HashSet<SourcePath>>>,
     regex_matcher: &Regex,
 ) -> Vec<SourceFile> {
