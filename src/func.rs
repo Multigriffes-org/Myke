@@ -63,10 +63,11 @@ pub fn compute_dependencies(
         }));
     }
 
-    join_handles
-        .into_iter()
-        .for_each(|handle| match handle.join() {
-            Ok(ref mut worker_source_file_list) => {
+    let mut error = false;
+    for handle in join_handles {
+        match handle.join() {
+            Ok((ref mut worker_source_file_list, worker_error)) => {
+                error |= worker_error;
                 worker_source_file_list
                     .iter_mut()
                     .for_each(|source_file| source_file.update_object_path(debug_mode));
@@ -75,9 +76,14 @@ pub fn compute_dependencies(
             Err(err) => {
                 eprintln!("{:?}", err);
             }
-        });
+        }
+    }
 
-    return Ok((general_source_file_list, binary_path));
+    if error {
+        return Err(ErrorKind::NotFound);
+    } else {
+        return Ok((general_source_file_list, binary_path));
+    }
 }
 
 pub fn update_object_path(source_file_list: &mut Vec<SourceFile>, debug_mode: bool) {
@@ -149,7 +155,7 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
                 .output()
             {
                 Err(err) => {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                     true
                 }
                 Ok(output) => {
@@ -198,7 +204,7 @@ pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32
 
     match gcc.output() {
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             1
         }
         Ok(output) => {

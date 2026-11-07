@@ -70,6 +70,7 @@ fn main() {
 
     let Ok((mut source_file_list, binary_path)) = compute_dependencies(input_path, debug_mode)
     else {
+        eprintln!("Error in dependencies searching, stopping...");
         return;
     };
 

@@ -16,8 +16,9 @@ pub fn dependencies_worker(
     general_busyness: Arc<AtomicU32>,
     already_knowned_source_path: Arc<Mutex<HashSet<SourcePath>>>,
     regex_matcher: &Regex,
-) -> Vec<SourceFile> {
+) -> (Vec<SourceFile>, bool) {
     let mut local_source_file_list = Vec::new();
+    let mut error = false;
     loop {
         // Verify if the worker needs to wait or stop
         if general_busyness.load(SeqCst) == 0 {
@@ -26,11 +27,15 @@ pub fn dependencies_worker(
 
         let mut included_path_list = match source_file_list.pop() {
             Some(mut source_file) => {
-                println!("updating_deps: {:?}", source_file.get_source_path().path());
+                println!(
+                    "Searching dependencies for : {:?}",
+                    source_file.get_source_path().path()
+                );
                 match source_file.update_dependencies(regex_matcher) {
                     Ok(list) => list,
                     Err(err) => {
                         eprintln!("{err}");
+                        error = true;
                         continue;
                     }
                 }
@@ -55,7 +60,14 @@ pub fn dependencies_worker(
         let included_source_file_list: Vec<SourceFile> = included_path_list
             .iter()
             .flat_map(|(source_path, header_path)| {
-                SourceFile::try_new(source_path, &Some(header_path.clone()))
+                match SourceFile::try_new(source_path, &Some(header_path.clone())) {
+                    Ok(source_file) => Ok(source_file),
+                    Err(err) => {
+                        eprintln!("{err}");
+                        error = true;
+                        Err(err)
+                    }
+                }
             })
             .collect();
 
@@ -70,5 +82,5 @@ pub fn dependencies_worker(
 
         general_busyness.fetch_sub(1, SeqCst);
     }
-    return local_source_file_list;
+    return (local_source_file_list, error);
 }
