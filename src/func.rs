@@ -129,9 +129,10 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
                     mkdir.arg(path);
                 }
             };
-            let output = mkdir.output().unwrap();
-            io::stdout().write_all(&output.stdout).unwrap();
-            io::stdout().write_all(&output.stderr).unwrap();
+            if let Ok(output) = mkdir.output() {
+                let _ = io::stdout().write_all(&output.stdout);
+                let _ = io::stdout().write_all(&output.stderr);
+            };
 
             let mut gcc = Command::new("g++");
             if debug_mode {
@@ -176,9 +177,10 @@ pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32
             mkdir.arg(path);
         }
     };
-    let output = mkdir.output().unwrap();
-    io::stdout().write_all(&output.stdout).unwrap();
-    io::stdout().write_all(&output.stderr).unwrap();
+    if let Ok(output) = mkdir.output() {
+        let _ = io::stdout().write_all(&output.stdout);
+        let _ = io::stdout().write_all(&output.stderr);
+    };
 
     let mut gcc = Command::new("g++");
     for source_file in source_file_list {
