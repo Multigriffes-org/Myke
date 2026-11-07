@@ -156,12 +156,12 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
                     println!("Compiling : {:?}", object_path.path());
                     let _ = stdout().write_all(&output.stdout);
                     let _ = stderr().write_all(&output.stderr);
-                    output.status.success()
+                    !output.status.success()
                 }
             }
         }
         (source_path, None) => {
-            eprintln!("No object for {:?}", source_path.path());
+            eprintln!("No object path for {:?}", source_path.path());
             true
         }
     }

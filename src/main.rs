@@ -75,7 +75,12 @@ fn main() {
 
     let (build_path_list, all_last_modified) = compute_need_rebuild_path(&mut source_file_list);
 
-    compile(build_path_list, debug_mode);
+    let compile_error = compile(build_path_list, debug_mode);
+
+    if compile_error {
+        eprintln!("Error in compilation process, stopping...");
+        return;
+    }
 
     let link_exit_code = match binary_path.path().metadata() {
         Ok(metadata) => match metadata.modified() {
