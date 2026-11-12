@@ -1,3 +1,4 @@
 target/
 *.bkp
 test/
+Makefile
