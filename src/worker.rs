@@ -71,13 +71,10 @@ pub fn dependencies_worker(
             })
             .collect();
 
-        included_source_file_list.iter().for_each(|x| {
-            source_file_list.push(x.clone());
+        included_source_file_list.iter().for_each(|source_file| {
+            source_file_list.push(source_file.clone());
             general_busyness.fetch_add(1, SeqCst);
-        });
-
-        included_source_file_list.iter().for_each(|x| {
-            local_source_file_list.push(x.clone());
+            local_source_file_list.push(source_file.clone());
         });
 
         general_busyness.fetch_sub(1, SeqCst);
