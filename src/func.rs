@@ -135,7 +135,10 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
             let mut gcc = Command::new("g++");
             if debug_mode {
                 gcc.arg("-g");
+            } else {
+                gcc.arg("-O2");
             }
+
             match gcc
                 .arg("-Wall")
                 .arg("-Wextra")
