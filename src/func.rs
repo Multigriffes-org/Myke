@@ -182,7 +182,7 @@ pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32
             }
         }
     }
-    gcc.arg("-o").arg(binary_path.path().clone());
+    gcc.arg("-o").arg(binary_path.path());
 
     match gcc.output() {
         Err(err) => {
