@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    fs::create_dir_all,
     io::{self, ErrorKind, Write, stderr, stdout},
     process::Command,
     sync::{Arc, Mutex, atomic::AtomicU32},
@@ -127,17 +128,8 @@ pub fn compile(path_list: Vec<(SourcePath, Option<ObjectPath>)>, debug_mode: boo
 fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> bool {
     match tuple {
         (source_path, Some(object_path)) => {
-            let mut mkdir = Command::new("mkdir");
-            mkdir.arg("-p");
-            match object_path.path().parent() {
-                None => {}
-                Some(path) => {
-                    mkdir.arg(path);
-                }
-            };
-            if let Ok(output) = mkdir.output() {
-                let _ = io::stdout().write_all(&output.stdout);
-                let _ = io::stdout().write_all(&output.stderr);
+            if let Some(parent) = object_path.path().parent() {
+                let _ = create_dir_all(parent);
             };
 
             let mut gcc = Command::new("g++");
@@ -174,18 +166,8 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
 }
 
 pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32 {
-    let mut mkdir = Command::new("mkdir");
-    mkdir.arg("-p");
-    match binary_path.path().parent() {
-        None => {}
-        Some(path) => {
-            // dbg!(path);
-            mkdir.arg(path);
-        }
-    };
-    if let Ok(output) = mkdir.output() {
-        let _ = io::stdout().write_all(&output.stdout);
-        let _ = io::stdout().write_all(&output.stderr);
+    if let Some(parent) = binary_path.path().parent() {
+        let _ = create_dir_all(parent);
     };
 
     let mut gcc = Command::new("g++");
