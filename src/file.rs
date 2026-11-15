@@ -29,7 +29,7 @@ impl SourceFile {
         source_path: SourcePath,
         header_path: Option<HeaderPath>,
     ) -> Self {
-        let result = SourceFile {
+        SourceFile {
             file_name,
             file_stem,
             source_path,
@@ -38,8 +38,7 @@ impl SourceFile {
             object_path: None,
             last_modified_object: UNIX_EPOCH,
             dependencies: Vec::new(),
-        };
-        result
+        }
     }
 
     pub fn update_object_path(&mut self, debug_mode: bool) {
