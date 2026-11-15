@@ -19,28 +19,31 @@ use crate::{
     worker::dependencies_worker,
 };
 
+/// Fonction that spawn the processes working on the dependencie queue
+///
+/// Each worker will take work from the queue and increaze the task_counter if they encounter a new dependencie
 pub fn compute_dependencies(
-    initial_source_path: SourcePath,
+    initial_source_file: SourceFile,
     debug_mode: bool,
 ) -> Result<(Vec<SourceFile>, BinaryPath), io::ErrorKind> {
-    let mut main_file = SourceFile::try_new(&initial_source_path, &None)?;
-    main_file.update_object_path(debug_mode);
-
-    let binary_path = BinaryPath::new(match main_file.get_object_path_ref() {
+    let binary_path = BinaryPath::new(match initial_source_file.get_object_path_ref() {
         None => {
             eprintln!("Can't find binary path");
             return Err(ErrorKind::NotFound);
         }
         Some(object_path) => object_path.path().with_extension(""),
     });
+    let mut general_source_file_list = vec![initial_source_file.clone()];
+    let mut dependencie_error = false;
+
+    // Initializes shared objects
     let regex_matcher = regex!(r#"^#include[\t ]*"((?:/?[\w\-. ]+)+\.(?:hpp|h))"[\t ]*$"#);
-
-    let mut general_source_file_list = vec![main_file.clone()];
-    let already_knowned_source_path = Arc::new(Mutex::new(HashSet::from([initial_source_path])));
-    let general_busyness = Arc::new(AtomicU32::new(1));
-
+    let already_knowned_source_path = Arc::new(Mutex::new(HashSet::from([
+        initial_source_file.get_source_path()
+    ])));
+    let task_counter = Arc::new(AtomicU32::new(1));
     let source_file_queue = Arc::new(SegQueue::new());
-    source_file_queue.push(main_file);
+    source_file_queue.push(initial_source_file);
 
     let num_worker = match available_parallelism() {
         Ok(num) => num.get(),
@@ -50,30 +53,28 @@ pub fn compute_dependencies(
     #[cfg(debug_assertions)]
     dbg!(num_worker);
 
+    // Spawn workers
     let mut join_handles = Vec::new();
     for _ in 0..num_worker {
         let _source_file_queue = source_file_queue.clone();
-        let _general_busyness = general_busyness.clone();
+        let _task_counter = task_counter.clone();
         let _already_knowned_source_path = already_knowned_source_path.clone();
 
         join_handles.push(spawn(move || {
             dependencies_worker(
                 _source_file_queue,
-                _general_busyness,
+                _task_counter,
                 _already_knowned_source_path,
                 regex_matcher,
             )
         }));
     }
 
-    let mut error = false;
+    // Join workers and collect error
     for handle in join_handles {
         match handle.join() {
             Ok((ref mut worker_source_file_list, worker_error)) => {
-                error |= worker_error;
-                worker_source_file_list
-                    .iter_mut()
-                    .for_each(|source_file| source_file.update_object_path(debug_mode));
+                dependencie_error |= worker_error;
                 general_source_file_list.append(worker_source_file_list);
             }
             Err(err) => {
@@ -82,7 +83,11 @@ pub fn compute_dependencies(
         }
     }
 
-    if error {
+    general_source_file_list
+        .par_iter_mut()
+        .for_each(|source_file| source_file.update_object_path(debug_mode));
+
+    if dependencie_error {
         return Err(ErrorKind::NotFound);
     } else {
         return Ok((general_source_file_list, binary_path));

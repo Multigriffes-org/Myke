@@ -1,6 +1,7 @@
 use std::{env, path::PathBuf, process::Command};
 
 use myke::{
+    file::SourceFile,
     func::{compile, compute_dependencies, compute_need_rebuild_path, link},
     path::SourcePath,
 };
@@ -66,9 +67,21 @@ fn main() {
         return;
     }
 
-    let input_path = SourcePath::from(PathBuf::from(&args[path_index].trim_matches('"')));
+    //_________________________________________
+    let input_path = match PathBuf::from(&args[path_index].trim_matches('"')).canonicalize() {
+        Ok(input_path) => SourcePath::from(input_path),
+        Err(_) => {
+            eprintln!("Can't find initial path, stopping...");
+            return;
+        }
+    };
+    let Ok(mut main_file) = SourceFile::try_new(&input_path, &None) else {
+        eprintln!("Can't find initial path, stopping...");
+        return;
+    };
+    main_file.update_object_path(debug_mode);
 
-    let Ok((mut source_file_list, binary_path)) = compute_dependencies(input_path, debug_mode)
+    let Ok((mut source_file_list, binary_path)) = compute_dependencies(main_file, debug_mode)
     else {
         eprintln!("Error in dependencies searching, stopping...");
         return;
