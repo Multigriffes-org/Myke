@@ -11,6 +11,7 @@ use crate::path::{HeaderPath, ObjectPath, SourcePath};
 
 #[derive(Clone)]
 pub struct SourceFile {
+    #[allow(dead_code)]
     file_name: OsString,
     file_stem: OsString,
     source_path: SourcePath,
