@@ -11,28 +11,33 @@ use regex::Regex;
 
 use crate::{file::SourceFile, path::SourcePath};
 
+/// Worker that process the queue and return all the created SourceFile and if an error occured
+/// TODO: return a proper Error type instead of bool
+/// TODO: duplicate in the queue aren't checked. It's checked when the SourceFile update it's dependencies
 pub fn dependencies_worker(
     source_file_list: Arc<SegQueue<SourceFile>>,
-    general_busyness: Arc<AtomicU32>,
+    task_counter: Arc<AtomicU32>,
     already_knowned_source_path: Arc<Mutex<HashSet<SourcePath>>>,
     regex_matcher: &Regex,
 ) -> (Vec<SourceFile>, bool) {
-    let mut local_source_file_list = Vec::new();
+    let mut worker_source_file_list = Vec::new();
     let mut error = false;
     loop {
         // Verify if the worker needs to wait or stop
-        if general_busyness.load(SeqCst) == 0 {
+        if task_counter.load(SeqCst) == 0 {
             break;
         }
 
+        // Take a dependencie tuple from the queue and update its dependencies
         let mut included_path_list = match source_file_list.pop() {
             Some(mut source_file) => {
                 println!(
-                    "Searching dependencies for : {:?}",
+                    "Dependencie found: {:?}",
                     source_file.get_source_path().path()
                 );
+
                 match source_file.update_dependencies(regex_matcher) {
-                    Ok(list) => list,
+                    Ok(dependencie_tuple) => dependencie_tuple,
                     Err(err) => {
                         eprintln!("{err}");
                         error = true;
@@ -45,22 +50,29 @@ pub fn dependencies_worker(
             }
         };
 
-        let mut already_knowned_source_path_hashset = match already_knowned_source_path.lock() {
-            Ok(list) => list,
-            Err(poisonned_guard) => poisonned_guard.into_inner(),
-        };
+        // Make the guard drop after use
+        {
+            let mut already_knowned_source_path_hashset = match already_knowned_source_path.lock() {
+                Ok(already_knowned_source_path_hashset) => already_knowned_source_path_hashset,
+                Err(poisonned_guard) => poisonned_guard.into_inner(),
+            };
 
-        included_path_list.retain(|x| !already_knowned_source_path_hashset.contains(&x.0));
+            // Filter the headers of the dependencie
+            included_path_list.retain(|depenencie_tuple| {
+                !already_knowned_source_path_hashset.contains(&depenencie_tuple.0)
+            });
 
-        included_path_list.iter().for_each(|x| {
-            already_knowned_source_path_hashset.insert(x.0.clone());
-        });
-        drop(already_knowned_source_path_hashset);
+            // Add the new ones to the knowed list
+            included_path_list.iter().for_each(|depenencie_tuple| {
+                already_knowned_source_path_hashset.insert(depenencie_tuple.0.clone());
+            });
+        }
 
+        // Create corresponding SourceFile from dependencie tuple
         let included_source_file_list: Vec<SourceFile> = included_path_list
-            .iter()
+            .into_iter()
             .flat_map(|(source_path, header_path)| {
-                match SourceFile::try_new(source_path, &Some(header_path.clone())) {
+                match SourceFile::try_new(&source_path, &Some(header_path)) {
                     Ok(source_file) => Ok(source_file),
                     Err(err) => {
                         eprintln!("{err}");
@@ -71,13 +83,17 @@ pub fn dependencies_worker(
             })
             .collect();
 
-        included_source_file_list.iter().for_each(|source_file| {
-            source_file_list.push(source_file.clone());
-            general_busyness.fetch_add(1, SeqCst);
-            local_source_file_list.push(source_file.clone());
-        });
+        // Add new tasks
+        included_source_file_list
+            .into_iter()
+            .for_each(|source_file| {
+                source_file_list.push(source_file.clone());
+                task_counter.fetch_add(1, SeqCst);
+                worker_source_file_list.push(source_file);
+            });
 
-        general_busyness.fetch_sub(1, SeqCst);
+        // Finish task
+        task_counter.fetch_sub(1, SeqCst);
     }
-    return (local_source_file_list, error);
+    return (worker_source_file_list, error);
 }
