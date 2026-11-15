@@ -14,6 +14,7 @@ fn print_help() {
 }
 
 fn main() {
+    //____________Argument parsing_____________
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         print_help();
@@ -87,8 +88,8 @@ fn main() {
         return;
     };
 
-    let (build_path_list, all_last_modified) = compute_need_rebuild_path(&mut source_file_list);
-
+    let (need_build_tuple_list, all_last_modified) =
+        compute_need_rebuild_path(&mut source_file_list);
 
     if compile(need_build_tuple_list, debug_mode).is_err() {
         eprintln!("Error in compilation process, stopping...");

@@ -97,6 +97,7 @@ pub fn compute_dependencies(
 pub fn compute_need_rebuild_path(
     source_file_list: &mut Vec<SourceFile>,
 ) -> (Vec<(SourcePath, Option<ObjectPath>)>, SystemTime) {
+    // Get most recent modification
     let last_modification_of_all: SystemTime = source_file_list
         .par_iter_mut()
         .map(|x| x.update_last_modified())
@@ -105,7 +106,7 @@ pub fn compute_need_rebuild_path(
             |acc, next| if next > acc { next } else { acc },
         );
 
-    let paths_list: Vec<(SourcePath, Option<ObjectPath>)> = source_file_list
+    let need_build_tuple_list: Vec<(SourcePath, Option<ObjectPath>)> = source_file_list
         .par_iter()
         .filter_map(|source_file| {
             if source_file.should_be_built() {
@@ -116,7 +117,7 @@ pub fn compute_need_rebuild_path(
         })
         .collect();
 
-    (paths_list, last_modification_of_all)
+    (need_build_tuple_list, last_modification_of_all)
 }
 
 pub fn compile(
