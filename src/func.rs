@@ -120,14 +120,22 @@ pub fn compute_need_rebuild_path(
     (paths_list, last_modification_of_all)
 }
 
-pub fn compile(path_list: Vec<(SourcePath, Option<ObjectPath>)>, debug_mode: bool) -> bool {
-    path_list
+pub fn compile(
+    path_list: Vec<(SourcePath, Option<ObjectPath>)>,
+    debug_mode: bool,
+) -> Result<(), ()> {
+    if path_list
         .par_iter()
-        .map(|tuple| compile_tuple(tuple, debug_mode))
+        .map(|tuple| compile_tuple(tuple, debug_mode).is_err())
         .reduce(|| false, |acc, x| acc | x)
+    {
+        Err(())
+    } else {
+        Ok(())
+    }
 }
 
-fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> bool {
+fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> Result<(), ()> {
     match tuple {
         (source_path, Some(object_path)) => {
             if let Some(parent) = object_path.path().parent() {
@@ -141,31 +149,33 @@ fn compile_tuple(tuple: &(SourcePath, Option<ObjectPath>), debug_mode: bool) -> 
                 gcc.arg("-O2");
             }
 
-            match gcc
-                .arg("-Wall")
+            gcc.arg("-Wall")
                 .arg("-Wextra")
                 .arg("-Wpedantic")
                 .arg("-c")
                 .arg(source_path.path())
                 .arg("-o")
-                .arg(object_path.path())
-                .output()
-            {
+                .arg(object_path.path());
+
+            println!("Compiling : {:?}", object_path.path());
+
+            match gcc.status() {
                 Err(err) => {
                     eprintln!("{err}");
-                    true
+                    Err(())
                 }
-                Ok(output) => {
-                    println!("Compiling : {:?}", object_path.path());
-                    let _ = stdout().write_all(&output.stdout);
-                    let _ = stderr().write_all(&output.stderr);
-                    !output.status.success()
+                Ok(exit_status) => {
+                    if exit_status.success() {
+                        Ok(())
+                    } else {
+                        Err(())
+                    }
                 }
             }
         }
         (source_path, None) => {
             eprintln!("No object path for {:?}", source_path.path());
-            true
+            Err(())
         }
     }
 }

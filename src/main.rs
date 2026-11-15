@@ -76,9 +76,8 @@ fn main() {
 
     let (build_path_list, all_last_modified) = compute_need_rebuild_path(&mut source_file_list);
 
-    let compile_error = compile(build_path_list, debug_mode);
 
-    if compile_error {
+    if compile(need_build_tuple_list, debug_mode).is_err() {
         eprintln!("Error in compilation process, stopping...");
         return;
     }
