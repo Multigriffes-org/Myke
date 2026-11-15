@@ -94,12 +94,6 @@ pub fn compute_dependencies(
     }
 }
 
-pub fn update_object_path(source_file_list: &mut Vec<SourceFile>, debug_mode: bool) {
-    source_file_list
-        .par_iter_mut()
-        .for_each(|source_file| source_file.update_object_path(debug_mode));
-}
-
 pub fn compute_need_rebuild_path(
     source_file_list: &mut Vec<SourceFile>,
 ) -> (Vec<(SourcePath, Option<ObjectPath>)>, SystemTime) {
