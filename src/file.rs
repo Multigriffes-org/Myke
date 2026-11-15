@@ -60,7 +60,7 @@ impl SourceFile {
 
     pub fn update_last_modified(&mut self) -> SystemTime {
         let mut last_modified_combined;
-
+        // Set last modified for sources
         match self.source_path.path().metadata() {
             Err(_) => last_modified_combined = SystemTime::now(),
             Ok(metadata) => match metadata.modified() {
@@ -68,22 +68,18 @@ impl SourceFile {
                 Ok(time) => last_modified_combined = time,
             },
         }
-        match self.header_path {
-            Some(ref header_path) => match header_path.path().metadata() {
-                Ok(metadata) => match metadata.modified() {
-                    Err(_) => {}
-                    Ok(time) => {
-                        if time > last_modified_combined {
-                            last_modified_combined = time;
-                        }
+        if let Some(ref header_path) = self.header_path {
+            if let Ok(metadata) = header_path.path().metadata() {
+                if let Ok(time) = metadata.modified() {
+                    if time > last_modified_combined {
+                        last_modified_combined = time;
                     }
-                },
-                Err(_) => {}
-            },
-            None => {}
+                }
+            }
         }
         self.last_modified_combined = last_modified_combined;
 
+        // Set last modified for object
         match self.object_path {
             Some(ref object_path) => match object_path.path().metadata() {
                 Err(_) => self.last_modified_object = UNIX_EPOCH,
@@ -95,6 +91,7 @@ impl SourceFile {
             None => self.last_modified_object = UNIX_EPOCH,
         }
 
+        // Return most recent modification including object file in case the .o got modified manually and we need to relink
         if self.last_modified_combined >= self.last_modified_object {
             self.last_modified_combined
         } else {
@@ -111,6 +108,7 @@ impl SourceFile {
             Err(err) => return Err(err.kind()),
         };
 
+        // Check every lines against a regex that catches the path of .h/.hpp
         for line in file_content.lines() {
             if let Some(captures) = regex_matcher.captures(line) {
                 #[cfg(debug_assertions)]
@@ -122,6 +120,7 @@ impl SourceFile {
                     #[cfg(debug_assertions)]
                     dbg!(&captured_path);
 
+                    // If not absolute make and absolute path from the path of the .c/.cpp
                     if !captured_path.is_absolute() {
                         let Some(parent) = self.source_path.path().parent() else {
                             continue;
@@ -129,18 +128,16 @@ impl SourceFile {
                         captured_path = parent.join(captured_path);
                     }
 
-                    match captured_path.canonicalize() {
-                        Ok(_captured_path) => captured_path = _captured_path,
-                        Err(_) => {
-                            eprintln!(
-                                "Header file note found, ignored : {:?}\nDependencie of : {:?}",
-                                captured_path,
-                                self.source_path.path()
-                            );
-                            continue;
-                        }
-                    }
+                    let Ok(captured_path) = captured_path.canonicalize() else {
+                        eprintln!(
+                            "Header file note found, ignored : {:?}\nDependencie of : {:?}",
+                            captured_path,
+                            self.source_path.path()
+                        );
+                        continue;
+                    };
 
+                    // Create the theorical path of the corresponding source file
                     let source_path = match captured_path.extension() {
                         Some(extension) if extension == OsStr::new("hpp") => {
                             SourcePath::from(captured_path.with_extension("cpp"))
@@ -164,6 +161,7 @@ impl SourceFile {
             }
         }
 
+        // Remove duplicate dependencies
         self.dependencies.sort_unstable();
         self.dependencies.dedup();
 
