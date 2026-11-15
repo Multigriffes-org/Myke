@@ -46,7 +46,9 @@ pub fn compute_dependencies(
         Ok(num) => num.get(),
         Err(_) => 1,
     };
-    // dbg!(num_worker);
+
+    #[cfg(debug_assertions)]
+    dbg!(num_worker);
 
     let mut join_handles = Vec::new();
     for _ in 0..num_worker {

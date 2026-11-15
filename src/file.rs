@@ -113,10 +113,14 @@ impl SourceFile {
 
         for line in file_content.lines() {
             if let Some(captures) = regex_matcher.captures(line) {
-                // dbg!(&captures.get(0).unwrap());
+                #[cfg(debug_assertions)]
+                dbg!(&captures.get(0).unwrap());
+
                 if let Some(captured_match) = captures.get(1) {
                     let mut captured_path = PathBuf::from(&captured_match.as_str());
-                    // dbg!(&captured_path);
+
+                    #[cfg(debug_assertions)]
+                    dbg!(&captured_path);
 
                     if !captured_path.is_absolute() {
                         let Some(parent) = self.source_path.path().parent() else {
