@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     fs::create_dir_all,
-    io::{self, ErrorKind, Write, stderr, stdout},
+    io::{self, ErrorKind},
     process::Command,
     sync::{Arc, Mutex, atomic::AtomicU32},
     thread::{available_parallelism, spawn},
@@ -204,19 +204,15 @@ pub fn link(source_file_list: &Vec<SourceFile>, binary_path: &BinaryPath) -> i32
     }
     gcc.arg("-o").arg(binary_path.path());
 
-    match gcc.output() {
+    println!("Linking : {:?}", binary_path.path());
+    match gcc.status() {
         Err(err) => {
             eprintln!("{err}");
             1
         }
-        Ok(output) => {
-            println!("Linking : {:?}", binary_path.path());
-            let _ = stdout().write_all(&output.stdout);
-            let _ = stderr().write_all(&output.stderr);
-            match output.status.code() {
-                None => 1,
-                Some(code) => code,
-            }
-        }
+        Ok(exit_status) => match exit_status.code() {
+            None => 1,
+            Some(code) => code,
+        },
     }
 }
